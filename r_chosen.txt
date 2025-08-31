@@ -1,0 +1,88 @@
+import math
+def find_modular_inverse(a, m):
+    if math.gcd(a, m) != 1:
+        return None
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r, s = (r1 - q * r2), (s1 - q * s2)
+        r1, r2 = r2, r
+        s1, s2 = s2, s
+    return s1 % m0
+
+def factor_n(n):
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            return i, n // i
+    return None, None
+
+def find_private_key_d(e, n):
+    p, q = factor_n(n)
+    if not p: return None
+    phi_n = (p - 1) * (q - 1)
+    d = find_modular_inverse(e, phi_n)
+    return d
+
+
+def rsa_chosen_ciphertext_attack(c, p_original, e, n):
+    print(f"Original Plaintext (P) for verification: {p_original}")
+    print(f"Intercepted Ciphertext (C): {c}")
+    print(f"Public Key (e={e}, n={n})\n")
+
+    # --- Step 1: Eve's Actions ---
+    print("--- Step 1: Eve prepares her attack ---")
+    # a. Eve chooses a random integer X such that gcd(X, n) = 1.
+    X = 2
+    print(f"a. Eve chooses a random integer X = {X}")
+
+    # b. Eve calculates the disguised ciphertext Y = C * X^e mod n
+    X_pow_e = pow(X, e, n)
+    Y = (c * X_pow_e) % n
+    print(f"b. Eve calculates Y = (C * X^e) mod n")
+    print(f"   Y = ({c} * {X}^{e}) mod {n} = {Y}")
+
+    # --- Step 2: Bob's (Unwitting) Action ---
+    print("\n--- Step 2: Eve tricks Bob into decrypting Y ---")
+    # c. To simulate Bob, we first need his private key 'd'.
+    d = find_private_key_d(e, n)
+    if not d:
+        print("Could not find Bob's private key 'd'. Attack fails.")
+        return None
+    print(f"c. Bob has private key d = {d}.")
+
+    # Bob decrypts Y to get Z = Y^d mod n.
+    Z = pow(Y, d, n)
+    print(f"   Bob decrypts Y and returns Z = Y^d mod n = {Z}")
+
+    # --- Step 3: Eve's Final Calculation ---
+    print("\n--- Step 3: Eve finds the original plaintext P ---")
+    # d. Eve calculates the inverse of her chosen X.
+    X_inv = find_modular_inverse(X, n)
+    if not X_inv:
+        print(f"Could not find inverse of X={X}. Attack fails.")
+        return None
+    print(f"d. Eve calculates the inverse of her X: {X}^-1 mod {n} = {X_inv}")
+
+    # Eve finds the original plaintext P = Z * X^-1 mod n
+    P_discovered = (Z * X_inv) % n
+    print(f"   Eve discovers P = (Z * X^-1) mod n = ({Z} * {X_inv}) mod {n} = {P_discovered}")
+
+    return P_discovered
+
+
+intercepted_ciphertext = 57
+original_plaintext = 8
+public_exponent_e = 7
+modulus_n = 143
+
+discovered_plaintext = rsa_chosen_ciphertext_attack(intercepted_ciphertext, original_plaintext, public_exponent_e, modulus_n)
+if discovered_plaintext is not None:
+    print(f"The plaintext discovered via the chosen-ciphertext attack is: {discovered_plaintext}")
+    if discovered_plaintext == original_plaintext:
+            print("Verification Successful: Discovered plaintext matches the original.")
+    else:
+            print("Verification Failed: Discovered plaintext does not match.")
+else:
+        print("The attack could not be completed.")

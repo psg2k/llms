@@ -1,0 +1,53 @@
+def rsa_cyclic_attack(c, e, n):
+    print(f"--- Simulating Cyclic Attack ---")
+    print(f"Intercepted Ciphertext (C): {c}")
+    print(f"Public Key (e={e}, n={n})\n")
+
+    # The list to store the sequence of generated ciphertexts
+    cycle_history = [c]
+
+    # Start the process with the initial ciphertext
+    current_c = c
+    iteration = 1
+
+    while True:
+        print(f"Iteration {iteration}:")
+        # Formula: C_next = (C_current)^e mod n
+        next_c = pow(current_c, e, n)
+
+        print(f"   Encrypting {current_c} -> ({current_c}^{e}) mod {n} = {next_c}")
+
+        # Check if we have completed the cycle
+        if next_c == c:
+            print(f"\nCycle detected! The sequence has returned to the original ciphertext {c}.")
+            # The plaintext is the value right before the cycle completed.
+            plaintext = current_c
+            print(f"The plaintext P is the previous value in the cycle: {plaintext}")
+            break
+
+        # If no cycle, update the current value and continue
+        current_c = next_c
+        cycle_history.append(current_c)
+        iteration += 1
+
+        # Safety break to prevent infinite loops in case of an issue
+        if iteration > 100:
+            print("Attack stopped after 100 iterations. Cycle not found.")
+            plaintext = None
+            break
+
+    print(f"\nFull Cycle History: {cycle_history}")
+    return plaintext
+
+
+intercepted_ciphertext = 22
+public_exponent_e = 3
+modulus_n = 35
+
+# Run the cyclic attack simulation
+discovered_plaintext = rsa_cyclic_attack(intercepted_ciphertext, public_exponent_e, modulus_n)
+
+if discovered_plaintext is not None:
+    print(f"The plaintext discovered via the cyclic attack is: {discovered_plaintext}")
+else:
+    print("Could not discover the plaintext.")

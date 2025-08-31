@@ -1,0 +1,60 @@
+import math
+
+def find_modular_inverse(a, m):
+    if math.gcd(a, m) != 1:
+        return None
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r = r1 - q * r2
+        r1, r2 = r2, r
+        s = s1 - q * s2
+        s1, s2 = s2, s
+    return s1 % m0
+
+def factor_n(n):
+    # Start checking for factors from 2 up to the square root of n.
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            p = i
+            q = n // i
+            return p, q
+    return None, None # Should not happen for valid RSA n
+
+def find_private_key_d(e, n):
+    print(f"Attempting to find private key 'd' for public key (e={e}, n={n})\n")
+
+    # Step 1: Factor n to find p and q
+    p, q = factor_n(n)
+    if not p:
+        print("Failed to factor n.")
+        return None
+    print(f"Step 1: Factored n into p and q.")
+    print(f"   p = {p}")
+    print(f"   q = {q}")
+    print(f"   Verification: {p} * {q} = {p * q} (matches n={n})")
+
+    # Step 2: Calculate phi(n) = (p-1) * (q-1)
+    phi_n = (p - 1) * (q - 1)
+    print(f"\nStep 2: Calculated phi(n).")
+    print(f"   phi(n) = ({p}-1) * ({q}-1) = {phi_n}")
+
+    # Step 3: Find the modular inverse of e mod phi(n) to get d
+    d = find_modular_inverse(e, phi_n)
+    if not d:
+        print(f"Failed to find modular inverse for e={e} and phi(n)={phi_n}.")
+        return None
+    print(f"\nStep 3: Calculated d as the modular inverse of e mod phi(n).")
+    print(f"   d * {e} mod {phi_n} = 1")
+    print(f"   Private exponent d = {d}")
+
+    return d
+public_exponent_e = 17
+modulus_n = 187
+private_key_d = find_private_key_d(public_exponent_e, modulus_n)
+if private_key_d:
+   print(f"The private key 'd' is: {private_key_d}")
+else:
+   print("Could not determine the private key.")

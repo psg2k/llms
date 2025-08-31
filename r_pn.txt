@@ -1,0 +1,39 @@
+def rsa_manual_encrypt(plaintext, e, n):
+    print(f"Encrypting plaintext: '{plaintext}'")
+    print(f"Using public key (e={e}, n={n})\n")
+
+    # Step 1: Define the character-to-number mapping
+    # A=00, B=01, ..., Z=25, SPACE=26
+    char_map = {chr(65 + i): f"{i:02d}" for i in range(26)}
+    char_map[' '] = "26"
+
+    # Step 2: Convert the entire plaintext message into a string of numbers
+    numeric_string = ""
+    for char in plaintext.upper():
+        if char in char_map:
+            numeric_string += char_map[char]
+        else:
+            print(f"Warning: Character '{char}' not in map, skipping.")
+
+    print(f"Plaintext converted to numeric string: {numeric_string}")
+
+    # Step 3: Group the numeric string into blocks of 2 digits.
+    # Since n=100, each block P must be < 100. A block size of 2 digits ensures this.
+    blocks = [int(numeric_string[i:i+2]) for i in range(0, len(numeric_string), 2)]
+    print(f"Numeric string grouped into blocks (P): {blocks}")
+
+    # Step 4: Encrypt each block using the formula C = P^e mod n
+    ciphertext_blocks = []
+    for p_block in blocks:
+        c_block = pow(p_block, e, n)
+        ciphertext_blocks.append(c_block)
+
+    print(f"Encrypted ciphertext blocks (C): {ciphertext_blocks}\n")
+    return ciphertext_blocks
+
+
+message = "HOW ARE YOU"
+public_exponent_e = 13
+modulus_n = 100
+encrypted_result = rsa_manual_encrypt(message, public_exponent_e, modulus_n)
+print(f"The final encrypted message is the sequence of blocks: {encrypted_result}")
