@@ -1,0 +1,82 @@
+#SERVER.PY
+from math import gcd
+import socket
+import threading
+
+# Alphabet size
+M = 26
+
+# Default keys (can be customized)
+A = 5  # Must be coprime with 26
+B = 8
+
+def modinv(a, m):
+    # Modular inverse of a under mod m
+    for x in range(1, m):
+        if (a * x) % m == 1:
+            return x
+    raise ValueError(f"No modular inverse for a={a} mod {m}")
+
+def encrypt_char(char, a, b):
+    if char.isalpha():
+        base = ord('A') if char.isupper() else ord('a')
+        x = ord(char) - base
+        enc = (a * x + b) % M
+        return chr(enc + base)
+    return char
+
+def decrypt_char(char, a, b):
+    if char.isalpha():
+        base = ord('A') if char.isupper() else ord('a')
+        x = ord(char) - base
+        a_inv = modinv(a, M)
+        dec = (a_inv * (x - b)) % M
+        return chr(dec + base)
+    return char
+
+def encrypt_message(message: str, a=A, b=B) -> str:
+    if gcd(a, M) != 1:
+        raise ValueError("Multiplicative key 'a' must be coprime with 26.")
+    return ''.join(encrypt_char(c, a, b) for c in message)
+
+def decrypt_message(ciphertext: str, a=A, b=B) -> str:
+    if gcd(a, M) != 1:
+        raise ValueError("Multiplicative key 'a' must be coprime with 26.")
+    return ''.join(decrypt_char(c, a, b) for c in ciphertext)
+
+HOST = '127.0.0.1'
+PORT = 65432
+
+def receive_messages(conn):
+    while True:
+        encrypted_data = conn.recv(1024).decode()
+        if not encrypted_data:
+            break
+        decrypted = decrypt_message(encrypted_data, A, B)
+        print(f"[Encrypted] {encrypted_data}")
+        if decrypted.lower() == 'exit':
+            print("[Client]: exit")
+            print("[Server] Connection Terminated")
+            conn.close()
+            break
+        print(f"[Client]: {decrypted}")
+
+def send_messages(conn):
+    while True:
+        msg = input()
+        encrypted = encrypt_message(msg, A, B)
+        conn.sendall(encrypted.encode())
+        if msg.lower() == 'exit':
+            print("[Server] Connection Terminated")
+            conn.close()
+            break
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind((HOST, PORT))
+    s.listen()
+    print(f"[Server] Listening on {HOST}:{PORT}")
+    conn, addr = s.accept()
+    print(f"[Server] Connected by {addr}")
+
+    threading.Thread(target=receive_messages, args=(conn,), daemon=True).start()
+    send_messages(conn)
