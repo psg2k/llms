@@ -1,0 +1,75 @@
+import socket
+
+def mul_inv(a, m):
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r = r1 - q * r2
+        s = s1 - q * s2
+        r1, r2 = r2, r
+        s1, s2 = s2, s
+    if r1 != 1:
+        return None
+    if s1 < 0:
+        s1 += m0
+    return s1
+
+def affine(pt, k1, k2, mode="encrypt"):
+    inv = mul_inv(k1, 26)
+    if inv is None:
+        return "Error: Key k1 is not valid."
+    
+    lower_pt = pt.lower()
+    res = ""
+    for char in lower_pt:
+        if char.isalpha():
+            if mode == "encrypt":
+                ct = ((ord(char) - ord('a')) * k1 + k2) % 26
+            else: # decrypt
+                ct = ((ord(char) - ord('a') - k2) * inv) % 26
+            res += chr(ct + ord('a'))
+        else:
+            res += char
+            
+    if pt.isupper():
+        return res.upper()
+    return res
+
+def start_client():
+    host, port = "127.0.0.1", 9999
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        client.connect((host, port))
+        print("Connected to server.")
+
+        # Affine keys are hardcoded and must match the server's keys
+        key1 = 15
+        key2 = 5
+
+        message = input("Enter a message to encrypt with Affine cipher: ")
+        
+        # Encrypt the message using the Affine cipher
+        print(f"\nOriginal Plaintext: '{message}'")
+        encrypted_message = affine(message, key1, key2, mode="encrypt")
+        print(f"Encrypted Ciphertext: '{encrypted_message}'")
+        
+        # Prepare data for sending (encode the string to bytes)
+        encrypted_bytes = encrypted_message.encode('utf-8')
+        
+        # Send the length of the data first, then the data itself
+        data_len = len(encrypted_bytes).to_bytes(4, 'big')
+        client.sendall(data_len)
+        client.sendall(encrypted_bytes)
+        print("\n-> Sent encrypted message to server.")
+
+    except ConnectionRefusedError:
+        print("[!] Connection refused. Is the server running?")
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+    finally:
+        print("-> Closing client.")
+        client.close()
+
+start_client()

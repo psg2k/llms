@@ -1,0 +1,91 @@
+import socket
+
+def recvall(client, n):
+    data = b""
+    while len(data) < n:
+        packet = client.recv(n - len(data))
+        if not packet:
+            return None
+        data += packet
+    return data
+
+def mul_inv(a, m):
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r = r1 - q * r2
+        s = s1 - q * s2
+        r1, r2 = r2, r
+        s1, s2 = s2, s
+    if r1 != 1:
+        return None
+    if s1 < 0:
+        s1 += m0
+    return s1
+
+def affine(pt, k1, k2, mode="encrypt"):
+    inv = mul_inv(k1, 26)
+    if inv is None:
+        return "Error: Key k1 is not valid."
+    
+    lower_pt = pt.lower()
+    res = ""
+    for char in lower_pt:
+        if char.isalpha():
+            if mode == "encrypt":
+                ct = ((ord(char) - ord('a')) * k1 + k2) % 26
+            else: # decrypt
+                ct = ((ord(char) - ord('a') - k2) * inv) % 26
+            res += chr(ct + ord('a'))
+        else:
+            res += char
+            
+    if pt.isupper():
+        return res.upper()
+    return res
+
+def start_server():
+    host, port = "127.0.0.1", 9999
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(1)
+    print(f"--- Affine Cipher Server listening on {host}:{port} ---")
+    
+    client, addr = server.accept()
+    print(f"Accepted connection from: {addr}")
+    try:
+        # Affine keys are hardcoded and must match the client's keys
+        key1 = 15
+        key2 = 5
+
+        # Receive the 4-byte length prefix
+        len_bytes = recvall(client, 4)
+        if not len_bytes:
+            raise ConnectionError("Client disconnected.")
+            
+        msg_len = int.from_bytes(len_bytes, 'big')
+        
+        # Receive the encrypted data
+        encrypted_bytes = recvall(client, msg_len)
+        if not encrypted_bytes:
+            raise ConnectionError("Client disconnected.")
+
+        # Decode the bytes back to a string
+        encrypted_message = encrypted_bytes.decode('utf-8')
+        print(f"\nReceived Ciphertext: '{encrypted_message}'")
+        
+        # Decrypt the message using the Affine cipher
+        decrypted_message = affine(encrypted_message, key1, key2, mode="decrypt")
+        
+        print(f"Decrypted Plaintext: '{decrypted_message}'\n")
+
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+    finally:
+        print("-> Closing sockets.")
+        client.close()
+        server.close()
+
+start_server()
