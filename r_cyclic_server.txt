@@ -1,0 +1,41 @@
+import socket
+
+def start_server():
+    host, port = "127.0.0.1", 9999
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(1)
+    print(f"--- RSA Victim Server started on {host}:{port} ---")
+    print("Waiting for an attacker to connect...")
+
+    client, addr = server.accept()
+    print(f"\nConnection established from {addr}.")
+    
+    try:
+        # These RSA parameters are chosen because they are weak and vulnerable
+        public_exponent_e = 3
+        modulus_n = 35
+        
+        # This is the server's secret message (plaintext)
+        plaintext_p = 13
+        print(f"Server's secret plaintext (P): {plaintext_p}")
+        
+        # The server encrypts the plaintext to get the ciphertext
+        ciphertext_c = pow(plaintext_p, public_exponent_e, modulus_n)
+        print(f"Encrypted ciphertext (C): {ciphertext_c}")
+        
+        # The server sends the public key and the ciphertext to the attacker
+        # This simulates the attacker intercepting this public information
+        message_to_send = f"{ciphertext_c},{public_exponent_e},{modulus_n}"
+        client.sendall(message_to_send.encode('utf-8'))
+        print(f"\nSent public data to attacker: (C={ciphertext_c}, e={public_exponent_e}, n={modulus_n})")
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("-> Closing sockets.")
+        client.close()
+        server.close()
+
+if __name__ == "__main__":
+    start_server()

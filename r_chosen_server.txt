@@ -1,0 +1,71 @@
+import socket
+import math
+
+def find_modular_inverse(a, m):
+    if math.gcd(a, m) != 1: return None
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r, s = (r1 - q * r2), (s1 - q * s2)
+        r1, r2 = r2, r
+        s1, s2 = s2, s
+    return s1 % m0
+
+def factor_n(n):
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0: return i, n // i
+    return None, None
+
+def find_private_key_d(e, n):
+    p, q = factor_n(n)
+    if not p: return None
+    phi_n = (p - 1) * (q - 1)
+    d = find_modular_inverse(e, phi_n)
+    return d
+
+def start_server():
+    host, port = "127.0.0.1", 9999
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(1)
+    print(f"--- RSA Decryption Oracle (Bob) started on {host}:{port} ---")
+    
+    # Bob calculates his private key from the public parameters
+    public_exponent_e = 7
+    modulus_n = 143
+    private_key_d = find_private_key_d(public_exponent_e, modulus_n)
+    
+    if not private_key_d:
+        print("Fatal Error: Could not calculate private key.")
+        return
+        
+    print(f"Bob's private key 'd' is: {private_key_d}")
+    print("Waiting for a connection from Eve...")
+
+    client, addr = server.accept()
+    print(f"\nConnection established from {addr}.")
+    
+    try:
+        # Receive the disguised ciphertext Y from Eve
+        Y_str = client.recv(1024).decode('utf-8')
+        Y = int(Y_str)
+        print(f"Received disguised ciphertext Y = {Y} from Eve.")
+        
+        # Bob decrypts Y to get Z and sends it back, not knowing he's helping an attack
+        Z = pow(Y, private_key_d, modulus_n)
+        print(f"Bob decrypts Y to get Z = {Z}")
+        
+        client.sendall(str(Z).encode('utf-8'))
+        print("Sent Z back to Eve.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("-> Closing sockets.")
+        client.close()
+        server.close()
+
+if __name__ == "__main__":
+    start_server()

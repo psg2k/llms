@@ -1,0 +1,72 @@
+import socket
+
+def rsa_cyclic_attack(c, e, n):
+    print(f"--- Simulating Cyclic Attack ---")
+    print(f"Intercepted Ciphertext (C): {c}")
+    print(f"Public Key (e={e}, n={n})\n")
+
+    cycle_history = [c]
+    current_c = c
+    iteration = 1
+
+    while True:
+        print(f"Iteration {iteration}:")
+        # Formula: C_next = (C_current)^e mod n
+        next_c = pow(current_c, e, n)
+        print(f"    Encrypting {current_c} -> ({current_c}^{e}) mod {n} = {next_c}")
+
+        if next_c == c:
+            print(f"\nCycle detected! The sequence returned to the original ciphertext {c}.")
+            plaintext = current_c
+            print(f"The plaintext P is the previous value in the cycle: {plaintext}")
+            break
+
+        current_c = next_c
+        cycle_history.append(current_c)
+        iteration += 1
+
+        if iteration > 100:
+            print("Attack stopped after 100 iterations. Cycle not found.")
+            plaintext = None
+            break
+            
+    print(f"\nFull Cycle History: {cycle_history}")
+    return plaintext
+
+def start_client():
+    host, port = "127.0.0.1", 9999
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    try:
+        print("--- RSA Attacker Client started ---")
+        client.connect((host, port))
+        print(f"Connected to victim server at {host}:{port}.")
+        
+        # Receive the public data from the server
+        received_data = client.recv(1024).decode('utf-8')
+        print(f"Intercepted public data: '{received_data}'\n")
+        
+        # Parse the data to get C, e, and n
+        c_str, e_str, n_str = received_data.split(',')
+        intercepted_c = int(c_str)
+        public_e = int(e_str)
+        modulus_n = int(n_str)
+        
+        # Run the cyclic attack with the intercepted information
+        discovered_plaintext = rsa_cyclic_attack(intercepted_c, public_e, modulus_n)
+
+        if discovered_plaintext is not None:
+            print(f"\nSUCCESS: The plaintext discovered via the cyclic attack is: {discovered_plaintext}")
+        else:
+            print("\nFAILURE: Could not discover the plaintext.")
+
+    except ConnectionRefusedError:
+        print("[!] Connection refused. Is the server running?")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("-> Closing client socket.")
+        client.close()
+
+if __name__ == "__main__":
+    start_client()

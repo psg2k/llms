@@ -1,0 +1,75 @@
+import socket
+import math
+
+def find_modular_inverse(a, m):
+    if math.gcd(a, m) != 1: return None
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r, s = (r1 - q * r2), (s1 - q * s2)
+        r1, r2 = r2, r
+        s1, s2 = s2, s
+    return s1 % m0
+
+def start_client():
+    host, port = "127.0.0.1", 9999
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    # Public information known to Eve
+    intercepted_c = 57
+    public_e = 7
+    modulus_n = 143
+    original_p = 8 # For verification only
+
+    print("--- RSA Attacker (Eve) started ---")
+    print(f"Original Plaintext (P) for verification: {original_p}")
+    print(f"Intercepted Ciphertext (C): {intercepted_c}")
+    print(f"Public Key (e={public_e}, n={modulus_n})\n")
+
+    try:
+        # --- Step 1: Eve prepares her attack ---
+        print("--- Step 1: Eve prepares her attack ---")
+        X = 2
+        print(f"a. Eve chooses a random integer X = {X}")
+
+        X_pow_e = pow(X, public_e, modulus_n)
+        Y = (intercepted_c * X_pow_e) % modulus_n
+        print(f"b. Eve calculates disguised ciphertext Y = {Y}")
+
+        # --- Step 2: Eve tricks Bob into decrypting Y ---
+        print("\n--- Step 2: Eve connects to Bob's Oracle ---")
+        client.connect((host, port))
+        print(f"Connected to Bob's server at {host}:{port}.")
+        
+        client.sendall(str(Y).encode('utf-8'))
+        print(f"Sent Y = {Y} to Bob for decryption.")
+        
+        Z_str = client.recv(1024).decode('utf-8')
+        Z = int(Z_str)
+        print(f"Received Bob's decrypted value Z = {Z}")
+        
+        # --- Step 3: Eve's Final Calculation ---
+        print("\n--- Step 3: Eve finds the original plaintext P ---")
+        X_inv = find_modular_inverse(X, modulus_n)
+        print(f"c. Eve calculates the inverse of her X: {X}^-1 mod {modulus_n} = {X_inv}")
+
+        P_discovered = (Z * X_inv) % modulus_n
+        print(f"d. Eve discovers P = (Z * X^-1) mod n = {P_discovered}")
+
+        if P_discovered == original_p:
+            print("\nVerification Successful: Discovered plaintext matches the original.")
+        else:
+            print("\nVerification Failed.")
+            
+    except ConnectionRefusedError:
+        print("[!] Connection refused. Is the server running?")
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+    finally:
+        print("-> Closing client socket.")
+        client.close()
+
+if __name__ == "__main__":
+    start_client()
