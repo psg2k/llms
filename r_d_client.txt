@@ -1,0 +1,86 @@
+import socket
+import math
+
+def find_modular_inverse(a, m):
+    if math.gcd(a, m) != 1:
+        return None
+    r1, r2 = a, m
+    s1, s2 = 1, 0
+    m0 = m
+    while r2 > 0:
+        q = r1 // r2
+        r = r1 - q * r2
+        s1, s2 = s2, (s1 - q * s2)
+        r1, r2 = r2, r
+    return s1 % m0
+
+def factor_n(n):
+    for i in range(2, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            return i, n // i
+    return None, None
+
+def find_private_key_d(e, n):
+    print(f"--- Starting Attack on Public Key (e={e}, n={n}) ---\n")
+
+    # Step 1: Factor n to find p and q
+    p, q = factor_n(n)
+    if not p:
+        print("Failed to factor n.")
+        return None
+    print(f"Step 1: Factored n into p and q.")
+    print(f"    p = {p}")
+    print(f"    q = {q}")
+    print(f"    Verification: {p} * {q} = {p * q} (matches n={n})")
+
+    # Step 2: Calculate phi(n) = (p-1) * (q-1)
+    phi_n = (p - 1) * (q - 1)
+    print(f"\nStep 2: Calculated phi(n).")
+    print(f"    phi(n) = ({p}-1) * ({q}-1) = {phi_n}")
+
+    # Step 3: Find the modular inverse of e mod phi(n) to get d
+    d = find_modular_inverse(e, phi_n)
+    if not d:
+        print(f"\nFailed to find modular inverse for e={e} and phi(n)={phi_n}.")
+        return None
+    print(f"\nStep 3: Calculated d as the modular inverse of e mod phi(n).")
+    print(f"    d * {e} mod {phi_n} = 1")
+    
+    return d
+
+def start_client():
+    host, port = "127.0.0.1", 9999
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+    try:
+        print("--- RSA Attacker Client started ---")
+        client.connect((host, port))
+        print(f"Connected to server at {host}:{port}.")
+        
+        # Receive the public key from the server
+        received_data = client.recv(1024).decode('utf-8')
+        print(f"Received public key data: '{received_data}'\n")
+        
+        # Parse the data to get e and n
+        e_str, n_str = received_data.split(',')
+        public_e = int(e_str)
+        modulus_n = int(n_str)
+        
+        # Run the attack to find the private key
+        private_key_d = find_private_key_d(public_e, modulus_n)
+
+        if private_key_d is not None:
+            print(f"\nSUCCESS: The derived private key 'd' is: {private_key_d}")
+        else:
+            print("\nFAILURE: Could not determine the private key.")
+
+    except ConnectionRefusedError:
+        print("[!] Connection refused. Is the server running?")
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+    finally:
+        print("-> Closing client socket.")
+        client.close()
+
+if __name__ == "__main__":
+    start_client()
